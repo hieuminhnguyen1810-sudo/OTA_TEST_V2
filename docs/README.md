@@ -1,6 +1,9 @@
-# 🚀 OTA-V2 - Expo React Native with OTA Updates
+# 🚀 OTA Test V2 - Expo React Native with OTA Updates
 
 Complete setup for Over-The-Air (OTA) updates with Expo, React Native, and CI/CD integration via GitHub Actions.
+
+[![EAS Build](https://github.com/hieuminhnguyen1810-sudo/OTA_TEST_V2/actions/workflows/eas-build.yml/badge.svg)](https://github.com/hieuminhnguyen1810-sudo/OTA_TEST_V2/actions/workflows/eas-build.yml)
+[![OTA Update](https://github.com/hieuminhnguyen1810-sudo/OTA_TEST_V2/actions/workflows/ota-update.yml/badge.svg)](https://github.com/hieuminhnguyen1810-sudo/OTA_TEST_V2/actions/workflows/ota-update.yml)
 
 ---
 
@@ -41,7 +44,7 @@ Complete setup for Over-The-Air (OTA) updates with Expo, React Native, and CI/CD
 
 ```bash
 git clone https://github.com/hieuminhnguyen1810-sudo/OTA_TEST_V2.git
-cd OTA_TEST_V2
+cd OTA_TEST_V2/ota-v2
 npm install
 ```
 
@@ -87,7 +90,7 @@ git push origin develop  # Auto deploy to preview channel!
 2. Force quit & reopen app
 3. Update auto downloads! ✅
 
-**📖 Detailed instructions:** See [docs/QUICKSTART.md](docs/QUICKSTART.md)
+**📖 Detailed instructions:** See [QUICKSTART.md](QUICKSTART.md)
 
 ---
 
@@ -100,23 +103,48 @@ git push origin develop  # Auto deploy to preview channel!
 │       ├── ota-update.yml       # Auto OTA deployment
 │       └── eas-build.yml        # Manual app builds
 │
-├── app/                         # App screens (Expo Router)
-├── components/
-│   └── ota-update-manager.tsx   # OTA testing UI
+├── ota-v2/                      # Expo React Native app
+│   ├── app/                     # App screens (Expo Router)
+│   ├── components/
+│   │   └── ota-update-manager.tsx   # OTA testing UI
+│   ├── app.json                 # Expo config
+│   ├── eas.json                 # EAS Build & Update config
+│   └── package.json
+│
 ├── scripts/
-│   └── ota-helper.sh            # Interactive OTA management
+│   └── ota-helper.sh           # Interactive OTA management
 │
-├── docs/                        # Complete documentation
-│   ├── QUICKSTART.md            # ⚡ Start here!
-│   ├── NEXT_STEPS.md            # What to do next
-│   ├── OTA_GUIDE.md             # Complete guide
-│   ├── OTA_CHECKLIST.md         # Verification checklist
-│   ├── ENV_SETUP.md             # Secrets & environment
-│   └── ...
-│
-├── app.json                     # Expo config
-├── eas.json                     # EAS Build & Update config
-└── package.json
+└── Documentation/
+    ├── QUICKSTART.md           # ⚡ Start here!
+    ├── OTA_GUIDE.md            # Complete guide
+    ├── OTA_CHECKLIST.md        # Step-by-step checklist
+    ├── ENV_SETUP.md            # Secrets & environment
+    └── SETUP_SUMMARY.md        # What was configured
+```
+
+---
+
+## 🔄 Workflow
+
+### Automatic Deployment (GitHub Actions)
+
+```
+Push to branch → GitHub Actions → Deploy OTA Update
+    ↓
+main branch      → production channel
+develop branch   → preview channel
+other branches   → development channel
+```
+
+### Manual Deployment
+
+```bash
+# Via helper script (interactive)
+./scripts/ota-helper.sh
+
+# Via command
+cd ota-v2
+eas update --branch preview --message "Bug fix"
 ```
 
 ---
@@ -125,17 +153,16 @@ git push origin develop  # Auto deploy to preview channel!
 
 | Document | Description |
 |----------|-------------|
-| [**docs/QUICKSTART.md**](docs/QUICKSTART.md) | ⚡ 5 bước để deploy OTA - Start here! |
-| [**docs/NEXT_STEPS.md**](docs/NEXT_STEPS.md) | ✅ Checklist những việc cần làm |
-| [**docs/OTA_GUIDE.md**](docs/OTA_GUIDE.md) | 📖 Complete guide với examples & troubleshooting |
-| [**docs/OTA_CHECKLIST.md**](docs/OTA_CHECKLIST.md) | ✅ Step-by-step checklist để verify setup |
-| [**docs/ENV_SETUP.md**](docs/ENV_SETUP.md) | 🔐 Environment variables & secrets setup |
-| [**docs/INDEX.md**](docs/INDEX.md) | 📑 Navigate all documentation |
+| [**QUICKSTART.md**](QUICKSTART.md) | ⚡ 5 bước để deploy OTA - Start here! |
+| [**OTA_GUIDE.md**](OTA_GUIDE.md) | 📖 Complete guide với examples & troubleshooting |
+| [**OTA_CHECKLIST.md**](OTA_CHECKLIST.md) | ✅ Step-by-step checklist để verify setup |
+| [**ENV_SETUP.md**](ENV_SETUP.md) | 🔐 Environment variables & secrets setup |
+| [**SETUP_SUMMARY.md**](SETUP_SUMMARY.md) | 📊 Summary of what was configured |
 
 **Recommended reading order:**
-1. docs/QUICKSTART.md (5 minutes)
-2. docs/NEXT_STEPS.md (follow step-by-step)
-3. docs/OTA_GUIDE.md (when you need details)
+1. QUICKSTART.md (5 minutes)
+2. OTA_CHECKLIST.md (follow step-by-step)
+3. OTA_GUIDE.md (when you need details)
 
 ---
 
@@ -182,7 +209,7 @@ git push origin main
 # ✅ Auto deploys to production channel
 ```
 
-### Manual Deploy
+### Manual Deploy with Choice
 
 ```bash
 # Interactive helper
@@ -200,6 +227,19 @@ eas update:list --branch production
 
 # Rollback to previous
 eas update:republish --group [PREVIOUS_GROUP_ID]
+```
+
+### View Update Stats
+
+```bash
+# List all updates on channel
+eas update:list --branch preview
+
+# View specific update
+eas update:view [UPDATE_ID]
+
+# List all channels
+eas channel:list
 ```
 
 ---
@@ -251,7 +291,7 @@ eas update --branch preview --message "Test update"
 - ✅ Re-generate token if expired
 - ✅ Check workflow logs
 
-**Full troubleshooting guide:** [docs/OTA_GUIDE.md#troubleshooting](docs/OTA_GUIDE.md#troubleshooting)
+**Full troubleshooting guide:** [OTA_GUIDE.md#troubleshooting](OTA_GUIDE.md#troubleshooting)
 
 ---
 
@@ -289,7 +329,7 @@ eas project:info
 - ✅ Rotate tokens regularly
 - ✅ Limit token permissions
 
-**Full security guide:** [docs/ENV_SETUP.md](docs/ENV_SETUP.md)
+**Full security guide:** [ENV_SETUP.md](ENV_SETUP.md)
 
 ---
 
@@ -312,6 +352,7 @@ Contributions welcome! Please:
 ./scripts/ota-helper.sh
 
 # App scripts
+cd ota-v2
 npm start              # Start dev server
 npm run android        # Run on Android
 npm run ios            # Run on iOS
@@ -354,8 +395,8 @@ MIT License - see LICENSE file for details
 
 ## 📞 Support
 
-- 📖 Check [Documentation](docs/OTA_GUIDE.md)
-- ✅ Follow [Checklist](docs/OTA_CHECKLIST.md)
+- 📖 Check [Documentation](OTA_GUIDE.md)
+- ✅ Follow [Checklist](OTA_CHECKLIST.md)
 - ❓ Open an [Issue](https://github.com/hieuminhnguyen1810-sudo/OTA_TEST_V2/issues)
 - 💬 [Expo Discord](https://chat.expo.dev)
 
@@ -370,3 +411,4 @@ Made with ❤️ using Expo & React Native
 [Report Bug](https://github.com/hieuminhnguyen1810-sudo/OTA_TEST_V2/issues) · [Request Feature](https://github.com/hieuminhnguyen1810-sudo/OTA_TEST_V2/issues)
 
 </div>
+
