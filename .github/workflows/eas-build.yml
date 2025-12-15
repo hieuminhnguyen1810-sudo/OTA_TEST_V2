@@ -5,7 +5,7 @@ on:
       target_branch:
         description: "Branch to build from"
         required: true
-        default: "main"
+        default: ""
       platform:
         description: "Platform to build"
         required: true

@@ -6,7 +6,7 @@ on:
       target_branch:
         description: 'Branch to update from'
         required: true
-        default: 'main'
+        default: ''
       channel:
         description: 'Update channel (development, preview, production)'
         required: true
