@@ -50,9 +50,12 @@ const branch = getCurrentBranch();
 const configPath = getConfigPath(branch);
 const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
 
-console.log(`📦 Loading config for branch: ${branch}`);
-console.log(`   Config file: ${path.basename(configPath)}`);
-console.log(`   App: ${config.appName}`);
+// Avoid noisy logs in CI
+if (process.env.CI !== 'true') {
+  console.log(`📦 Loading config for branch: ${branch}`);
+  console.log(`   Config file: ${path.basename(configPath)}`);
+  console.log(`   App: ${config.appName}`);
+}
 
 module.exports = config;
 
