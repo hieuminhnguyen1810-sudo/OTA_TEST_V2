@@ -18,11 +18,12 @@ on:
       profile:
         description: "Build profile"
         required: true
-        default: "preview"
+        default: "bv_app1"
         type: choice
         options:
           - development
           - preview
+          - bv_app1
           - production
 
 jobs:

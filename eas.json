@@ -16,6 +16,14 @@
         "buildType": "apk"
       }
     },
+    "bv_app1": {
+      "distribution": "internal",
+      "channel": "preview-bv_app1",
+      "credentialsSource": "local",
+      "android": {
+        "buildType": "apk"
+      }
+    },
     "production": {
       "channel": "production",
       "autoIncrement": true,
