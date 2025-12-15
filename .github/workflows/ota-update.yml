@@ -91,8 +91,11 @@ jobs:
           const appJson = JSON.parse(fs.readFileSync('app.json', 'utf8'));
           const config = require('./config/index.js');
 
+          // Preserve original slug to match EAS projectId
+          const originalSlug = appJson.expo.slug || 'ota-v2';
+
           appJson.expo.name = config.appName;
-          appJson.expo.slug = config.slug;
+          appJson.expo.slug = originalSlug; // keep slug stable
           appJson.expo.android.package = config.packageName;
           appJson.expo.scheme = config.scheme;
 
