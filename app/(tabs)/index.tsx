@@ -19,7 +19,7 @@ export default function HomeScreen() {
         />
       }>
       <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
+        <ThemedText type="title">Welcome! THIS IS OTA VERSION 2</ThemedText>
         <HelloWave />
       </ThemedView>
 
