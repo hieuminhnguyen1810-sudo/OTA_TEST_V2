@@ -89,3 +89,10 @@ tmp/
 temp/
 *.tmp
 
+# Android Keystores (Local Credentials)
+android/keystores/
+*.keystore
+
+# Credentials file
+credentials.json
+
