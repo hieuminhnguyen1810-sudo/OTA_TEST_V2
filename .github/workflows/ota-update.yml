@@ -1,16 +1,12 @@
 name: OTA Update
 
 on:
-  push:
-    branches:
-      - main
-      - develop
-  pull_request:
-    branches:
-      - main
-      - develop
   workflow_dispatch:
     inputs:
+      target_branch:
+        description: 'Branch to update from'
+        required: true
+        default: 'main'
       channel:
         description: 'Update channel (development, preview, production)'
         required: true
@@ -22,7 +18,7 @@ on:
           - production
       message:
         description: 'Update message'
-        required: false
+        required: true
         default: 'Manual OTA update'
 
 jobs:
@@ -37,12 +33,14 @@ jobs:
       - name: Check for EXPO_TOKEN
         run: |
           if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
-            echo "You must provide an EXPO_TOKEN secret linked to this project's Expo account in this repo's secrets. Learn more: https://docs.expo.dev/eas-update/github-actions"
+            echo "❌ EXPO_TOKEN is not set!"
             exit 1
           fi
 
       - name: Checkout repository
         uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.target_branch }}
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -59,48 +57,69 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Determine channel
-        id: channel
+      - name: Load branch configuration
+        id: config
+        env:
+          GITHUB_REF_NAME: ${{ github.event.inputs.target_branch }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            CHANNEL="${{ github.event.inputs.channel }}"
-          elif [ "${{ github.event_name }}" == "pull_request" ]; then
-            CHANNEL="preview"
-          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            CHANNEL="production"
-          elif [ "${{ github.ref }}" == "refs/heads/develop" ]; then
-            CHANNEL="preview"
-          else
-            CHANNEL="development"
-          fi
-          echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
-          echo "📢 Deploying to channel: $CHANNEL"
+          node << 'EOF' > config_output.json
+          const config = require('./config/index.js');
+          console.log(JSON.stringify({
+            app_name: config.appName,
+            slug: config.slug,
+            package_name: config.packageName,
+            scheme: config.scheme
+          }));
+          EOF
 
-      - name: Determine update message
-        id: message
+          APP_NAME=$(node -p "require('./config_output.json').app_name")
+          PACKAGE_NAME=$(node -p "require('./config_output.json').package_name")
+
+          echo "app_name=$APP_NAME" >> $GITHUB_OUTPUT
+          echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+
+          echo "✅ Config loaded:"
+          echo "   App: $APP_NAME"
+          echo "   Package: $PACKAGE_NAME"
+
+      - name: Configure app.json
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            MESSAGE="${{ github.event.inputs.message }}"
-          elif [ "${{ github.event_name }}" == "pull_request" ]; then
-            MESSAGE="PR Preview: ${{ github.event.pull_request.title }}"
-          else
-            MESSAGE="OTA Update: ${{ github.event.head_commit.message }}"
-          fi
-          echo "message=$MESSAGE" >> $GITHUB_OUTPUT
-          echo "💬 Message: $MESSAGE"
+          cp app.json app.json.backup
+
+          node << 'EOF'
+          const fs = require('fs');
+          const appJson = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+          const config = require('./config/index.js');
+
+          appJson.expo.name = config.appName;
+          appJson.expo.slug = config.slug;
+          appJson.expo.android.package = config.packageName;
+          appJson.expo.scheme = config.scheme;
+
+          fs.writeFileSync('app.json', JSON.stringify(appJson, null, 2));
+          console.log('✅ Modified app.json');
+          EOF
 
       - name: Publish update
         run: |
+          CHANNEL="${{ github.event.inputs.channel }}-${{ github.event.inputs.target_branch }}"
           eas update \
-            --branch ${{ steps.channel.outputs.channel }} \
-            --message "${{ steps.message.outputs.message }}" \
+            --branch "$CHANNEL" \
+            --message "${{ github.event.inputs.message }}" \
             --non-interactive
+          echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
+
+      - name: Restore app.json
+        if: always()
+        run: |
+          if [ -f app.json.backup ]; then
+            mv app.json.backup app.json
+          fi
 
       - name: Update summary
         run: |
           echo "### 🚀 OTA Update Published Successfully!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Channel**: ${{ steps.channel.outputs.channel }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Message**: ${{ steps.message.outputs.message }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.event.inputs.target_branch }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Channel**: ${{ github.event.inputs.channel }}-${{ github.event.inputs.target_branch }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Message**: ${{ github.event.inputs.message }}" >> $GITHUB_STEP_SUMMARY

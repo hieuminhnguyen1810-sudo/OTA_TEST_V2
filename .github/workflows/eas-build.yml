@@ -2,6 +2,10 @@ name: EAS Build
 on:
   workflow_dispatch:
     inputs:
+      target_branch:
+        description: "Branch to build from"
+        required: true
+        default: "main"
       platform:
         description: "Platform to build"
         required: true
@@ -29,6 +33,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.target_branch }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -45,26 +51,117 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Restore credentials.json (for local credentials)
-      - name: Restore credentials.json
+      - name: Load branch configuration
+        id: config
+        env:
+          GITHUB_REF_NAME: ${{ github.event.inputs.target_branch }}
         run: |
-          if [ -n "${{ secrets.CREDENTIALS_JSON_BASE64 }}" ]; then
-            echo "${{ secrets.CREDENTIALS_JSON_BASE64 }}" | base64 -d > credentials.json
-            echo "✅ credentials.json restored"
-          else
-            echo "⚠️  CREDENTIALS_JSON_BASE64 not set, using remote credentials"
-          fi
+          node << 'EOF' > config_output.json
+          const config = require('./config/index.js');
+          console.log(JSON.stringify({
+            app_name: config.appName,
+            slug: config.slug,
+            package_name: config.packageName,
+            scheme: config.scheme,
+            keystore_file: config.keystoreFile,
+            keystore_password: config.keystorePassword,
+            key_alias: config.keyAlias,
+            key_password: config.keyPassword
+          }));
+          EOF
 
-      # Restore keystore (for local credentials)
+          APP_NAME=$(node -p "require('./config_output.json').app_name")
+          SLUG=$(node -p "require('./config_output.json').slug")
+          PACKAGE_NAME=$(node -p "require('./config_output.json').package_name")
+          SCHEME=$(node -p "require('./config_output.json').scheme")
+          KEYSTORE_FILE=$(node -p "require('./config_output.json').keystore_file")
+          KEYSTORE_PASSWORD=$(node -p "require('./config_output.json').keystore_password")
+          KEY_ALIAS=$(node -p "require('./config_output.json').key_alias")
+          KEY_PASSWORD=$(node -p "require('./config_output.json').key_password")
+
+          echo "app_name=$APP_NAME" >> $GITHUB_OUTPUT
+          echo "slug=$SLUG" >> $GITHUB_OUTPUT
+          echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+          echo "scheme=$SCHEME" >> $GITHUB_OUTPUT
+          echo "keystore_file=$KEYSTORE_FILE" >> $GITHUB_OUTPUT
+          echo "keystore_password=$KEYSTORE_PASSWORD" >> $GITHUB_OUTPUT
+          echo "key_alias=$KEY_ALIAS" >> $GITHUB_OUTPUT
+          echo "key_password=$KEY_PASSWORD" >> $GITHUB_OUTPUT
+
+          echo "✅ Config loaded:"
+          echo "   App: $APP_NAME"
+          echo "   Package: $PACKAGE_NAME"
+          echo "   Keystore: $KEYSTORE_FILE"
+
       - name: Restore keystore
         run: |
-          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            mkdir -p android/keystores
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/keystores/release.keystore
-            echo "✅ Keystore restored"
-          else
-            echo "⚠️  KEYSTORE_BASE64 not set"
-          fi
+          KEYSTORE_FILE="${{ steps.config.outputs.keystore_file }}"
+          mkdir -p android/keystores
+
+          node << 'EOF'
+          const fs = require('fs');
+          const config = require('./config_output.json');
+          const keystoreFile = config.keystore_file;
+
+          // Map keystore files to secrets (add more as needed)
+          const secretMap = {
+            'bv_app1-release.keystore': process.env.KEYSTORE_BV_APP1_BASE64,
+            'main-release.keystore': process.env.KEYSTORE_MAIN_BASE64,
+          };
+
+          const keystoreBase64 = secretMap[keystoreFile];
+          if (!keystoreBase64) {
+            throw new Error(`Keystore secret not found for: ${keystoreFile}`);
+          }
+
+          fs.writeFileSync(
+            `android/keystores/${keystoreFile}`,
+            Buffer.from(keystoreBase64, 'base64')
+          );
+          console.log(`✅ Keystore restored: ${keystoreFile}`);
+          EOF
+        env:
+          KEYSTORE_BV_APP1_BASE64: ${{ secrets.KEYSTORE_BV_APP1_BASE64 }}
+          KEYSTORE_MAIN_BASE64: ${{ secrets.KEYSTORE_main_release_keystore_BASE64 }}
+
+      - name: Generate credentials.json
+        run: |
+          node << 'EOF'
+          const fs = require('fs');
+          const config = require('./config/index.js');
+
+          const credentials = {
+            android: {
+              keystore: {
+                keystorePath: `android/keystores/${config.keystoreFile}`,
+                keystorePassword: config.keystorePassword,
+                keyAlias: config.keyAlias,
+                keyPassword: config.keyPassword
+              }
+            }
+          };
+
+          fs.writeFileSync('credentials.json', JSON.stringify(credentials, null, 2));
+          console.log('✅ Generated credentials.json');
+          EOF
+
+      - name: Configure app.json
+        run: |
+          cp app.json app.json.backup
+
+          node << 'EOF'
+          const fs = require('fs');
+          const appJson = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+          const config = require('./config/index.js');
+
+          appJson.expo.name = config.appName;
+          appJson.expo.slug = config.slug;
+          appJson.expo.android.package = config.packageName;
+          appJson.expo.scheme = config.scheme;
+
+          fs.writeFileSync('app.json', JSON.stringify(appJson, null, 2));
+          console.log('✅ Modified app.json');
+          EOF
 
       - name: Build Android
         if: ${{ github.event.inputs.platform == 'android' || github.event.inputs.platform == 'all' }}
@@ -84,12 +181,19 @@ jobs:
             --non-interactive \
             --no-wait
 
+      - name: Restore app.json
+        if: always()
+        run: |
+          if [ -f app.json.backup ]; then
+            mv app.json.backup app.json
+          fi
+
       - name: Build summary
         run: |
           echo "### 📦 Build Triggered Successfully!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.event.inputs.target_branch }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Platform**: ${{ github.event.inputs.platform }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Profile**: ${{ github.event.inputs.profile }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "💡 Build is running on EAS. Check progress in Expo dashboard."
+          echo "- **App**: ${{ steps.config.outputs.app_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package**: ${{ steps.config.outputs.package_name }}" >> $GITHUB_STEP_SUMMARY

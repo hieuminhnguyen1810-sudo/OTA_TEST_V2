@@ -1,0 +1,12 @@
+{
+  "appName": "ota-v2",
+  "slug": "ota-v2",
+  "packageName": "com.hieunguyenminh1810.otav2",
+  "scheme": "otav2",
+  "keystoreFile": "main-release.keystore",
+  "keystorePassword": "CHANGE_ME",
+  "keyAlias": "upload",
+  "keyPassword": "CHANGE_ME"
+}
+
+

@@ -1,0 +1,10 @@
+{
+  "appName": "OTA V2 - App1",
+  "slug": "ota-v2-app1",
+  "packageName": "com.hieunguyenminh1810.otav2.app1",
+  "scheme": "otav2app1",
+  "keystoreFile": "bv_app1-release.keystore",
+  "keystorePassword": "123456",
+  "keyAlias": "bv_app1",
+  "keyPassword": "123456"
+}
